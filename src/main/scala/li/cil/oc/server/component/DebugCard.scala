@@ -416,6 +416,14 @@ object DebugCard {
       null
     }
 
+    @Callback(doc = """function(player:string):string - Get a players team name""")
+    def getPlayerTeam(context: Context, args: Arguments): Array[AnyRef] = {
+      checkAccess()
+      val player = args.checkString(0)
+      val team = scoreboard.getPlayersTeam(player)
+      result(team.getTeamName())
+    }
+
     @Callback(doc = """function(player:string, team:string):boolean - Add a player to a team""")
     def addPlayerToTeam(context: Context, args: Arguments): Array[AnyRef] = {
       checkAccess()
