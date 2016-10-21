@@ -14,7 +14,9 @@ import li.cil.oc.api.network.SidedEnvironment
 import li.cil.oc.api.network.Visibility
 import li.cil.oc.api.prefab
 import li.cil.oc.api.prefab.AbstractValue
-import li.cil.oc.server.component.DebugCard.{AccessContext, CommandSender}
+import li.cil.oc.server.PacketSender
+import li.cil.oc.server.component.DebugCard.AccessContext
+import li.cil.oc.server.component.DebugCard.CommandSender
 import li.cil.oc.util.BlockPosition
 import li.cil.oc.util.ExtendedArguments._
 import li.cil.oc.util.ExtendedNBT._
@@ -31,7 +33,6 @@ import net.minecraft.tileentity.TileEntity
 import net.minecraft.util.EnumFacing
 import net.minecraft.util.ResourceLocation
 import net.minecraft.util.SoundCategory
-import net.minecraft.util.SoundEvent
 import net.minecraft.util.math.BlockPos
 import net.minecraft.util.text.ITextComponent
 import net.minecraft.world.GameType
@@ -227,7 +228,7 @@ class DebugCard(host: EnvironmentHost) extends prefab.ManagedEnvironment {
       val z = nbt.getInteger(Settings.namespace + "remoteZ")
       remoteNodePosition = Some((x, y, z))
     }
-    }
+  }
 
   override def save(nbt: NBTTagCompound): Unit = {
     super.save(nbt)
@@ -324,6 +325,51 @@ object DebugCard {
       withPlayer(player => {
         player.setHealth(args.checkDouble(0).toFloat)
         null
+      })
+
+    @Callback(doc = """function():number -- Get the player's level""")
+    def getLevel(context: Context, args: Arguments): Array[AnyRef] =
+      withPlayer(player => result(player.experienceLevel))
+
+    @Callback(doc = """function():number -- Get the player's total experience""")
+    def getExperienceTotal(context: Context, args: Arguments): Array[AnyRef] =
+      withPlayer(player => result(player.experienceTotal))
+
+    @Callback(doc = """function(level:number) -- Add a level to the player's experience level""")
+    def addExperienceLevel(context: Context, args: Arguments): Array[AnyRef] =
+      withPlayer(player => {
+        player.addExperienceLevel(args.checkInteger(0))
+        null
+      })
+
+    @Callback(doc = """function(level:number) -- Remove a level from the player's experience level""")
+    def removeExperienceLevel(context: Context, args: Arguments): Array[AnyRef] =
+      withPlayer(player => {
+        player.removeExperienceLevel(args.checkInteger(0))
+        null
+      })
+
+    @Callback(doc = """function() -- Clear the players inventory""")
+    def clearInventory(context: Context, args: Arguments): Array[AnyRef] =
+      withPlayer(player => {
+        player.inventory.clear()
+        null
+      })
+
+    @Callback(doc = """function(id:string, amount:number, meta:number[, nbt:string]):number -- Adds the item stack to the players inventory""")
+    def insertItem(context: Context, args: Arguments): Array[AnyRef] =
+      withPlayer(player => {
+        val item = Item.REGISTRY.getObject(new ResourceLocation(args.checkString(0)))
+        if (item == null) {
+          throw new IllegalArgumentException("invalid item id")
+        }
+        val amount = args.checkInteger(1)
+        val meta = args.checkInteger(2)
+        val tagJson = args.checkString(3)
+        val tag = if (Strings.isNullOrEmpty(tagJson)) null else JsonToNBT.getTagFromJson(tagJson)
+        val stack = new ItemStack(item, amount, meta)
+        stack.setTagCompound(tag)
+        result(InventoryUtils.addToPlayerInventory(stack, player))
       })
 
     // ----------------------------------------------------------------------- //
@@ -424,7 +470,7 @@ object DebugCard {
       val (x, y, z) = (args.checkInteger(0), args.checkInteger(1), args.checkInteger(2))
       val sound = args.checkString(3)
       val range = args.checkInteger(4)
-      world.playSound(null, x, y, z, new SoundEvent(new ResourceLocation(sound)), SoundCategory.MASTER, range / 15 + 0.5F, 1.0F)
+      PacketSender.sendSound(world, x, y, z, new ResourceLocation(sound), SoundCategory.MASTER, range)
       null
     }
 
