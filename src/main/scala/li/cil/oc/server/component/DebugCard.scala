@@ -160,7 +160,7 @@ class DebugCard(host: EnvironmentHost) extends prefab.ManagedEnvironment {
     }
   }
 
-  @Callback(doc = """function(x:number, y:number, z:number):boolean -- Connect the debug card to the block at the specified coordinates.""")
+  @Callback(doc = """function(x:number, y:number, z:number):string -- Connect the debug card to the block at the specified coordinates. Returns the nodes address""")
   def connectToBlock(context: Context, args: Arguments): Array[AnyRef] = {
     checkAccess()
     val x = args.checkInteger(0)
@@ -172,7 +172,7 @@ class DebugCard(host: EnvironmentHost) extends prefab.ManagedEnvironment {
         remoteNode = Some(other)
         remoteNodePosition = Some((x, y, z))
         node.connect(other)
-        result(true)
+        result(other.address())
       case _ =>
         result(Unit, "no node found at this position")
     }
@@ -414,6 +414,14 @@ object DebugCard {
       val team = scoreboard.getTeam(teamName)
       scoreboard.removeTeam(team)
       null
+    }
+
+    @Callback(doc = """function(player:string):string - Get a players team name""")
+    def getPlayerTeam(context: Context, args: Arguments): Array[AnyRef] = {
+      checkAccess()
+      val player = args.checkString(0)
+      val team = scoreboard.getPlayersTeam(player)
+      result(team.getTeamName())
     }
 
     @Callback(doc = """function(player:string, team:string):boolean - Add a player to a team""")
